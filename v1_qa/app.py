@@ -50,14 +50,23 @@ if question := st.chat_input("Ask a question from your textbooks..."):
 
     # Get answer
     with st.chat_message("assistant"):
-        with st.spinner("Searching your textbooks..."):
-            result = ask_question(chain, question)
+        with st.spinner("Agent is thinking and searching..."):
+            # Convert UI history to LangChain format
+            chat_history = []
+            for msg in st.session_state.messages[:-1]: # exclude the current question we just appended
+                if msg["role"] == "user":
+                    chat_history.append(("human", msg["content"]))
+                elif msg["role"] == "assistant":
+                    chat_history.append(("ai", msg["content"]))
+                    
+            result = ask_question(chain, question, chat_history)
 
         st.write(result["answer"])
 
-        with st.expander(f"📚 Sources ({result['num_chunks_used']} chunks used)"):
-            for src in result["sources"]:
-                st.caption(f"• {src}")
+        if result["sources"]:
+            with st.expander(f"📚 Sources ({result['num_chunks_used']} chunks used)"):
+                for src in result["sources"]:
+                    st.caption(f"• {src}")
 
     st.session_state.messages.append({
         "role": "assistant",

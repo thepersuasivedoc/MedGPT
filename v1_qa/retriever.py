@@ -1,82 +1,130 @@
+import os
+import re
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
+from langchain.tools import tool
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
 
 load_dotenv()
 
 CHROMA_PATH = "./chroma_db"
+PDF_FOLDER = "./pdfs"
 
-MEDICAL_QA_PROMPT = PromptTemplate(
-    input_variables=["context", "question"],
-    template="""
-You are a medical education assistant helping an MBBS student understand concepts from their textbooks.
-
-RULES:
-- Answer ONLY from the provided context
-- If the answer is not in the context, say "This specific information is not in your uploaded textbooks"
-- Include the page number or source when possible
-- Be concise but complete
-- For drug dosages or critical clinical info, always add: "Verify this in your official textbook before clinical use"
-
-CONTEXT FROM TEXTBOOKS:
-{context}
-
-STUDENT QUESTION:
-{question}
-
-ANSWER:
-"""
+# Initialize global embeddings and vectorstore once
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = Chroma(
+    persist_directory=CHROMA_PATH,
+    embedding_function=embeddings,
 )
 
+@tool
+def list_available_textbooks() -> str:
+    """Use this tool to find out what textbooks or PDFs are currently available in the database. Returns a list of filenames."""
+    if not os.path.exists(PDF_FOLDER):
+        return "No textbooks found."
+    files = [f for f in os.listdir(PDF_FOLDER) if f.endswith(".pdf")]
+    if not files:
+        return "No PDFs found in the database."
+    return f"Available textbooks: {', '.join(files)}"
+
+@tool
+def search_textbooks(query: str, specific_pdf: str = None) -> str:
+    """Use this tool to search the textbooks for medical information to answer the user's question.
+    Args:
+        query: The specific medical concept or question to search for.
+        specific_pdf: (Optional) If the user mentions a specific book or filename, put the exact filename here to filter the search (e.g., 'AWS_Notes.pdf').
+    Returns:
+        The extracted context from the textbooks.
+    """
+    search_kwargs = {
+        "k": 6,
+        "fetch_k": 20
+    }
+    
+    # Apply metadata filtering if a specific PDF is requested
+    if specific_pdf:
+        search_kwargs["filter"] = {"source": specific_pdf}
+        
+    retriever = vectorstore.as_retriever(
+        search_type="mmr",
+        search_kwargs=search_kwargs
+    )
+    
+    docs = retriever.invoke(query)
+    
+    if not docs:
+        return f"No relevant information found in the textbooks for: {query}"
+        
+    context = ""
+    for idx, doc in enumerate(docs):
+        source = doc.metadata.get('source', 'Unknown')
+        context += f"--- Document {idx+1} (Source: {source}) ---\n{doc.page_content}\n\n"
+        
+    return context
 
 def build_qa_chain():
-    """Build the RAG chain. Call once and reuse."""
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-    vectorstore = Chroma(
-        persist_directory=CHROMA_PATH,
-        embedding_function=embeddings,
-    )
-
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",          # MMR avoids returning duplicate chunks
-        search_kwargs={
-            "k": 6,                 # Retrieve 6 chunks
-            "fetch_k": 20,          # Consider top 20 before diversity filtering
-        }
-    )
-
+    """Build the Agentic RAG system. (Kept name as build_qa_chain for compatibility)"""
     llm = ChatOllama(
-        model="llama3",             # Local, free model running via Ollama
-        temperature=0,              # 0 = deterministic, critical for factual medical content
+        model="llama3.1",
+        temperature=0,
     )
+    
+    tools = [list_available_textbooks, search_textbooks]
+    
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are an AI assistant analyzing documents from a local database.
+You have access to tools that let you look up what documents are available and search their contents.
 
-    chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True,
-        chain_type_kwargs={"prompt": MEDICAL_QA_PROMPT},
+CRITICAL RULES:
+1. If the user asks what books/PDFs/documents you have, YOU MUST call the `list_available_textbooks` tool.
+2. DO NOT invent, guess, or hallucinate document names. ONLY output the exact filenames returned by the tool, even if they don't sound like medical books.
+3. If the user asks a specific question, YOU MUST call the `search_textbooks` tool. If they mention a specific book, pass that filename to the tool.
+4. Answer ONLY based on the information returned by your tools. If the tools don't return the answer, say "This specific information is not in your uploaded textbooks".
+5. Cite your sources (including the filename) when answering.
+6. For drug dosages or critical clinical info, always add: "Verify this in your official textbook before clinical use"
+"""),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+        MessagesPlaceholder("agent_scratchpad"),
+    ])
+    
+    agent = create_tool_calling_agent(llm, tools, prompt)
+    
+    agent_executor = AgentExecutor(
+        agent=agent, 
+        tools=tools, 
+        verbose=True,
+        return_intermediate_steps=True
     )
+    
+    return agent_executor
 
-    return chain
 
-
-def ask_question(chain, question: str) -> dict:
+def ask_question(agent_executor, question: str, chat_history: list = None) -> dict:
     """Ask a question and return answer + sources."""
-    result = chain.invoke({"query": question})
-
-    answer = result["result"]
-    sources = list(set([
-        doc.metadata.get("source", "Unknown")
-        for doc in result["source_documents"]
-    ]))
-
+    if chat_history is None:
+        chat_history = []
+        
+    result = agent_executor.invoke({
+        "input": question,
+        "chat_history": chat_history
+    })
+    
+    answer = result["output"]
+    
+    sources = set()
+    num_chunks = 0
+    for action, observation in result.get("intermediate_steps", []):
+        if action.tool == "search_textbooks":
+            found_sources = re.findall(r"Source: ([^\)]+)\)", str(observation))
+            sources.update(found_sources)
+            num_chunks += len(found_sources)
+            
     return {
         "answer": answer,
-        "sources": sources,
-        "num_chunks_used": len(result["source_documents"])
+        "sources": list(sources),
+        "num_chunks_used": num_chunks
     }
