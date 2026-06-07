@@ -9,11 +9,55 @@ from v1_qa.retriever import build_qa_chain, ask_question
 st.set_page_config(
     page_title="MedAI - Textbook Q&A",
     page_icon="🩺",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-st.title("🩺 MedAI — Textbook Q&A")
-st.caption("Ask anything from your uploaded MBBS textbooks")
+# Custom CSS for Modern UI
+st.markdown("""
+<style>
+    /* Header Gradient Text */
+    .gradient-text {
+        background: -webkit-linear-gradient(45deg, #6366f1, #a855f7, #ec4899);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 3.5em;
+        font-weight: 800;
+        margin-bottom: 0px;
+        padding-bottom: 0px;
+    }
+    .sub-text {
+        color: #94a3b8;
+        font-size: 1.2em;
+        margin-top: -10px;
+        margin-bottom: 30px;
+    }
+    
+    /* Hide top header and footer */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Chat bubbles styling */
+    .stChatMessage {
+        background-color: #1e293b !important;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid #334155;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        margin-bottom: 15px;
+    }
+    
+    /* Input box styling */
+    .stChatInputContainer {
+        border-radius: 25px !important;
+        border: 1px solid #6366f1 !important;
+        box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2) !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<h1 class="gradient-text">🩺 MedAI</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-text">Intelligent Q&A powered by your MBBS textbooks</p>', unsafe_allow_html=True)
 
 # Load chain once per session
 @st.cache_resource

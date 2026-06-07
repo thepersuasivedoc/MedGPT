@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MedAI Chat</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- Animated background -->
+    <div class="bg-mesh"></div>
+
+    <div class="app-container">
+      <!-- Navbar (minimal) -->
+      <nav class="top-nav">
+        <div class="brand">✨ MedAI</div>
+        <div class="nav-links">
+          <a href="/features.html">Features</a>
+          <a href="/login.html">Logout</a>
+        </div>
+      </nav>
+
+      <!-- Main Chat Area -->
+      <main class="chat-area" id="chat-area">
+        <!-- Greeting screen (disappears when chat starts) -->
+        <div class="greeting-container" id="greeting-container">
+          <h1 class="greeting-text">
+            Hi <span id="user-greeting-name">Karthikeyan</span>,<br />
+            <span class="sub-greeting" id="sub-greeting-text">Ask away</span>
+          </h1>
+        </div>
+
+        <!-- Chat history container -->
+        <div class="chat-history" id="chat-history" style="display: none;">
+          <!-- Messages will be injected here -->
+        </div>
+      </main>
+
+      <!-- Floating Input Bar -->
+      <div class="input-wrapper">
+        <form class="chat-input-form" id="chat-form">
+          <input 
+            type="text" 
+            id="chat-input" 
+            placeholder="Ask MedAI" 
+            autocomplete="off"
+            autofocus
+          />
+          <button type="submit" id="send-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"></line>
+              <polyline points="5 12 12 5 19 12"></polyline>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+    
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
