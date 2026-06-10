@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MedAI Chat</title>
     <link rel="stylesheet" href="/src/style.css" />
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   </head>
   <body>
     <!-- Animated background -->
@@ -38,6 +39,13 @@
 
       <!-- Floating Input Bar -->
       <div class="input-wrapper">
+        <div class="deep-dive-toggle-container">
+          <label class="switch">
+            <input type="checkbox" id="deep-dive-toggle">
+            <span class="slider round"></span>
+          </label>
+          <span class="deep-dive-label">🧠 Deep Dive Mode</span>
+        </div>
         <form class="chat-input-form" id="chat-form">
           <input 
             type="text" 

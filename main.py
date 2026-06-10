@@ -6,7 +6,7 @@ import sys
 
 # Ensure v1_qa is accessible
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from v1_qa.retriever import build_qa_chain, ask_question
+from v1_qa.retriever import build_qa_chain_normal, build_qa_chain_deep_dive, ask_question
 
 app = FastAPI(title="MedAI API")
 
@@ -19,12 +19,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the global QA chain
+# Initialize the global QA chains
 try:
-    chain = build_qa_chain()
+    chain_normal = build_qa_chain_normal()
+    chain_deep_dive = build_qa_chain_deep_dive()
 except Exception as e:
-    print(f"Warning: Could not initialize QA chain. Database might not exist. Error: {e}")
-    chain = None
+    print(f"Warning: Could not initialize QA chains. Error: {e}")
+    chain_normal = None
+    chain_deep_dive = None
 
 class ChatMessage(BaseModel):
     role: str
@@ -33,11 +35,12 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     chat_history: list[ChatMessage] = []
+    mode: str = "normal"
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    if not chain:
-        return {"answer": "The QA chain is not initialized. Please ensure the Chroma database is created.", "sources": []}
+    if not chain_normal or not chain_deep_dive:
+        return {"answer": "The QA chains are not initialized.", "sources": []}
         
     # Convert history for Langchain
     lc_history = []
@@ -45,7 +48,10 @@ async def chat(request: ChatRequest):
         role = "human" if msg.role == "user" else "ai"
         lc_history.append((role, msg.content))
         
-    result = ask_question(chain, request.message, lc_history)
+    # Route to the appropriate model based on mode
+    selected_chain = chain_deep_dive if request.mode == "deep_dive" else chain_normal
+        
+    result = ask_question(selected_chain, request.message, lc_history)
     
     return {
         "answer": result["answer"],
