@@ -42,3 +42,9 @@ data/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# V3 generated media
+outputs/
+
+# graphify knowledge-graph build artifacts
+graphify-out/

@@ -4,5 +4,12 @@ MAX_TOKENS_PER_RESPONSE = 1000     # Don't let LLM go on forever
 MAX_CHUNKS_PER_QUERY = 6           # Fewer chunks = cheaper
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # Local HuggingFace model
 NORMAL_MODEL = "llama3.1"            # Local Ollama model for fast V1 mode
-DEEP_DIVE_MODEL = "qwen2.5"          # Local Ollama model for intelligent diagram generation
+DEEP_DIVE_MODEL = "qwen3:8b"         # Local Ollama model for intelligent diagram generation
+VISUAL_MODEL = "qwen3:8b"            # Local Ollama model for V2/V3 generation (used when backend = "ollama")
 CLAUDE_MODEL = "claude-haiku-4-5"  # Fastest/cheapest Claude for V2/V3
+
+# ─── Generation backend for V2/V3 (NOT V1 — V1's tool-calling agent stays on Ollama) ───
+# "claude-cli": shell out to the local `claude` CLI (uses your Claude Code auth, no API key needed)
+# "ollama":     fully local via Ollama (VISUAL_MODEL above)
+GENERATION_BACKEND = "claude-cli"
+CLAUDE_CLI_MODEL = "haiku"           # alias passed to `claude --model` (haiku/sonnet/opus or full id)
