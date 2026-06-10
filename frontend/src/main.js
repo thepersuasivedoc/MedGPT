@@ -121,8 +121,10 @@ async function appendMessage(role, content, sources = []) {
       interaction: {
         hover: true,
         tooltipDelay: 100,
-        zoomView: true,
-        dragView: true
+        zoomView: false,
+        dragView: false,
+        dragNodes: false,
+        selectable: false
       }
     };
     
@@ -130,17 +132,8 @@ async function appendMessage(role, content, sources = []) {
     try {
       const network = new window.vis.Network(container, graphJSON, options);
       
-      // Add click listener to ask follow up questions on node click
-      network.on("click", function (params) {
-        if (params.nodes.length > 0) {
-          const nodeId = params.nodes[0];
-          const node = graphJSON.nodes.find(n => n.id == nodeId);
-          if (node) {
-            chatInput.value = `Tell me more about ${node.label}`;
-            chatInput.focus();
-          }
-        }
-      });
+      // Removed the click listener to make it completely static
+
     } catch (e) {
       console.error("Vis.js rendering error:", e);
       containerWrapper.innerHTML = `<div class="error-fallback">🎨 <em>Oops, couldn't draw the graph!</em></div>`;
