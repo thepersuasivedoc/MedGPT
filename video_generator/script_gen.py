@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from shared.config import MAX_CHUNKS_PER_QUERY
 from shared.llm import generate
-from v1_qa.retriever import vectorstore
+from normal_mode.retriever import vectorstore
 
 load_dotenv()
 

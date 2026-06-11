@@ -95,20 +95,23 @@ CRITICAL RULES:
     return AgentExecutor(agent=agent, tools=tools, verbose=True, return_intermediate_steps=True)
 
 
-def build_qa_chain_deep_dive():
-    """Build the Agentic RAG system for Deep Dive Mode (V2)."""
+def build_qa_chain_visual_explainer():
+    """Build the Agentic RAG system for Visual Explainer Mode (Merged V1 Deep Dive + V2 Visual)."""
     llm = ChatOllama(model=DEEP_DIVE_MODEL, temperature=0.7)
     tools = get_tools()
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a brilliant, warm, and highly encouraging teacher analyzing documents from a local database.
-Your goal is to make complex medical topics extremely easy to understand using highly intuitive, relatable real-world analogies and visual mindmaps.
+        ("system", """You are a brilliant, warm, and highly encouraging medical teacher analyzing documents from a local database.
+Your goal is to make complex medical topics extremely easy to understand. You MUST use one of the following creative framing techniques:
+- **Story/Analogy**: Relatable characters or scenarios (e.g., the body as a city).
+- **Mnemonic**: An acronym, rhyme, or memory trick with a vivid visual association.
+- **Comparison**: Compare and differentiate similar concepts clearly.
 
 CRITICAL RULES:
 1. Always check the textbooks first using `search_textbooks`.
-2. Explain the concept using a real-world analogy.
-3. VISUAL GRAPH: You MUST output exactly ONE JSON code block containing nodes and edges for a Vis.js network graph to visualize the concept.
-   The JSON MUST be inside ```json ... ``` blocks and must perfectly match this structure:
+2. Provide your explanation using a story, mnemonic, or comparison based on the retrieved context.
+3. VISUAL GRAPH: ONLY output a JSON code block for a Vis.js network graph IF it significantly helps explain a complex relationship, algorithm, or pathophysiology. Do NOT generate a graph for simple factual answers, conversational follow-ups, or if the graph would be identical to one you just generated in the chat history.
+   If you decide to generate a graph, the JSON MUST be inside ```json ... ``` blocks and must perfectly match this structure:
    ```json
    {{
      "nodes": [

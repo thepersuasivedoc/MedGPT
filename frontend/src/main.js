@@ -21,6 +21,17 @@ if (subGreetingDisplay) {
   subGreetingDisplay.textContent = phrases[Math.floor(Math.random() * phrases.length)];
 }
 
+const modeSelectDropdown = document.getElementById('mode-select');
+if (modeSelectDropdown) {
+  modeSelectDropdown.addEventListener('change', (e) => {
+    if (e.target.value === 'normal') {
+      document.body.className = 'theme-normal';
+    } else if (e.target.value === 'visual_explainer') {
+      document.body.className = 'theme-visual';
+    }
+  });
+}
+
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatHistory = document.getElementById('chat-history');
@@ -55,6 +66,35 @@ function parseMarkdownAndExtractJSON(text) {
   return { html, graphJSON };
 }
 
+async function typeWriterHTML(element, htmlString, speed = 10) {
+  let i = 0;
+  let isTag = false;
+  let text = "";
+  element.innerHTML = "";
+  
+  while (i < htmlString.length) {
+    let char = htmlString.charAt(i);
+    if (char === '<') {
+      isTag = true;
+    }
+    
+    text += char;
+    i++;
+    
+    if (char === '>') {
+      isTag = false;
+      continue; // Skip delay for tags
+    }
+    
+    if (!isTag) {
+      element.innerHTML = text;
+      window.scrollTo(0, document.body.scrollHeight);
+      await new Promise(r => setTimeout(r, speed));
+    }
+  }
+  element.innerHTML = htmlString;
+}
+
 async function appendMessage(role, content, sources = []) {
   if (greetingContainer && greetingContainer.style.display !== 'none') {
     greetingContainer.style.display = 'none';
@@ -66,7 +106,17 @@ async function appendMessage(role, content, sources = []) {
   
   const { html, graphJSON } = parseMarkdownAndExtractJSON(content);
   
-  let innerHTML = `<div class="content">${html}</div>`;
+  let innerHTML = `<div class="content"></div>`;
+  msgDiv.innerHTML = innerHTML;
+  chatHistory.appendChild(msgDiv);
+  
+  const contentDiv = msgDiv.querySelector('.content');
+  
+  if (role === 'ai') {
+    await typeWriterHTML(contentDiv, html, 15);
+  } else {
+    contentDiv.innerHTML = html;
+  }
   
   if (sources && sources.length > 0) {
     let sourcesHtml = '<div class="sources"><strong>Sources:</strong><br>';
@@ -74,11 +124,8 @@ async function appendMessage(role, content, sources = []) {
       sourcesHtml += `<span class="source-item">• ${src}</span>`;
     });
     sourcesHtml += '</div>';
-    innerHTML += sourcesHtml;
+    msgDiv.innerHTML += sourcesHtml;
   }
-  
-  msgDiv.innerHTML = innerHTML;
-  chatHistory.appendChild(msgDiv);
   
   // If we found a JSON graph representation, render it using Vis.js
   if (graphJSON && window.vis) {
@@ -93,6 +140,12 @@ async function appendMessage(role, content, sources = []) {
     
     const container = document.getElementById(containerId);
     
+    // Read current theme colors
+    const primaryColor = getComputedStyle(document.body).getPropertyValue('--primary-color').trim() || '#10b981';
+    const primaryBg = getComputedStyle(document.body).getPropertyValue('--primary-bg').trim() || 'rgba(16, 185, 129, 0.2)';
+    const primaryLight = getComputedStyle(document.body).getPropertyValue('--primary-light').trim() || '#34d399';
+    const gradStart = getComputedStyle(document.body).getPropertyValue('--gradient-start').trim() || '#06b6d4';
+    
     const options = {
       nodes: {
         shape: 'box',
@@ -100,23 +153,30 @@ async function appendMessage(role, content, sources = []) {
         margin: 10,
         color: {
           background: 'rgba(24, 24, 27, 0.9)',
-          border: '#10b981',
-          highlight: { background: '#10b981', border: '#ffffff' },
-          hover: { background: 'rgba(16, 185, 129, 0.2)', border: '#34d399' }
+          border: primaryColor,
+          highlight: { background: primaryColor, border: '#ffffff' },
+          hover: { background: primaryBg, border: primaryLight }
         },
         font: { color: '#ffffff', face: 'Outfit', size: 16 },
-        shadow: { enabled: true, color: 'rgba(16, 185, 129, 0.2)', size: 10, x: 0, y: 0 }
+        shadow: { enabled: true, color: primaryBg, size: 10, x: 0, y: 0 }
       },
       edges: {
         width: 2,
-        color: { color: '#3f3f46', highlight: '#10b981', hover: '#06b6d4' },
+        color: { color: '#3f3f46', highlight: primaryColor, hover: gradStart },
         arrows: { to: { enabled: true, scaleFactor: 0.5 } },
         smooth: { type: 'cubicBezier' }
       },
+      layout: {
+        hierarchical: {
+          enabled: true,
+          direction: 'UD',
+          sortMethod: 'directed',
+          nodeSpacing: 150,
+          levelSeparation: 150
+        }
+      },
       physics: {
-        enabled: true,
-        solver: 'forceAtlas2Based',
-        forceAtlas2Based: { gravitationalConstant: -50, centralGravity: 0.01, springLength: 100, springConstant: 0.08 }
+        enabled: false
       },
       interaction: {
         hover: true,
@@ -124,7 +184,7 @@ async function appendMessage(role, content, sources = []) {
         zoomView: false,
         dragView: false,
         dragNodes: false,
-        selectable: false
+        selectable: true
       }
     };
     
@@ -132,7 +192,17 @@ async function appendMessage(role, content, sources = []) {
     try {
       const network = new window.vis.Network(container, graphJSON, options);
       
-      // Removed the click listener to make it completely static
+      // Add click listener to ask follow up questions on node click
+      network.on("click", function (params) {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          const node = graphJSON.nodes.find(n => n.id == nodeId);
+          if (node) {
+            chatInput.value = `Tell me more about ${node.label}`;
+            chatInput.focus();
+          }
+        }
+      });
 
     } catch (e) {
       console.error("Vis.js rendering error:", e);
@@ -179,8 +249,8 @@ chatForm.addEventListener('submit', async (e) => {
   
   appendLoader();
   
-  const deepDiveToggle = document.getElementById('deep-dive-toggle');
-  const mode = deepDiveToggle && deepDiveToggle.checked ? "deep_dive" : "normal";
+  const modeSelect = document.getElementById('mode-select');
+  const mode = modeSelect ? modeSelect.value : "normal";
   
   try {
     const response = await fetch('http://127.0.0.1:8000/api/chat', {
@@ -205,6 +275,6 @@ chatForm.addEventListener('submit', async (e) => {
   } catch (err) {
     console.error(err);
     removeLoader();
-    appendMessage('ai', '⚠️ Sorry, there was an error connecting to the MedAI server.');
+    appendMessage('ai', '⚠️ Sorry, there was an error connecting to the MedGPT server.');
   }
 });

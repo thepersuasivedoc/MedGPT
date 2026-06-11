@@ -9,6 +9,9 @@ import os
 import json
 import textwrap
 import subprocess
+import urllib.parse
+import requests
+from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 from dotenv import load_dotenv
@@ -53,7 +56,22 @@ def create_text_slide(
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
     W, H = 1080, 1920
-    img = Image.new("RGB", (W, H), background_color)
+    
+    # 1. Fetch dynamic AI background based on the visual description
+    safe_prompt = urllib.parse.quote(text[:150])
+    img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width={W}&height={H}&nologo=true"
+    try:
+        resp = requests.get(img_url, timeout=30)
+        resp.raise_for_status()
+        img = Image.open(BytesIO(resp.content)).convert("RGBA")
+    except Exception as e:
+        print(f"Fallback background due to: {e}")
+        img = Image.new("RGBA", (W, H), background_color)
+
+    # 2. Add dark overlay for text readability
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 170))
+    img = Image.alpha_composite(img, overlay).convert("RGB")
+    
     draw = ImageDraw.Draw(img)
     font = _load_font(fontsize)
 

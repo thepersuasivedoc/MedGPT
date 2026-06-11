@@ -3,20 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MedAI Chat</title>
+    <title>MedGPT Chat</title>
     <link rel="stylesheet" href="/src/style.css" />
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   </head>
-  <body>
+  <body class="theme-normal">
     <!-- Animated background -->
     <div class="bg-mesh"></div>
 
     <div class="app-container">
       <!-- Navbar (minimal) -->
       <nav class="top-nav">
-        <div class="brand">✨ MedAI</div>
+        <div class="brand">✨ MedGPT</div>
         <div class="nav-links">
           <a href="/features.html">Features</a>
+          <a href="/video-gen.html" class="nav-video-gen">Video Gen</a>
           <a href="/login.html">Logout</a>
         </div>
       </nav>
@@ -39,18 +40,17 @@
 
       <!-- Floating Input Bar -->
       <div class="input-wrapper">
-        <div class="deep-dive-toggle-container">
-          <label class="switch">
-            <input type="checkbox" id="deep-dive-toggle">
-            <span class="slider round"></span>
-          </label>
-          <span class="deep-dive-label">🧠 Deep Dive Mode</span>
+        <div class="mode-select-container">
+          <select id="mode-select" class="mode-select">
+            <option value="normal" class="mode-normal">Normal Mode</option>
+            <option value="visual_explainer" class="mode-visual">Visual Explainer</option>
+          </select>
         </div>
         <form class="chat-input-form" id="chat-form">
           <input 
             type="text" 
             id="chat-input" 
-            placeholder="Ask MedAI" 
+            placeholder="Ask MedGPT" 
             autocomplete="off"
             autofocus
           />
