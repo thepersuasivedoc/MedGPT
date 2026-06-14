@@ -27,11 +27,11 @@ VOICE_IDS = {
     "female_warm": "EXAVITQu4vr4xnSDxMaL",          # Bella
 }
 
-# macOS `say` voices used for the offline fallback.
-SAY_VOICES = {
-    "male_professional": "Daniel",
-    "male_energetic": "Fred",
-    "female_warm": "Samantha",
+# Microsoft Edge Neural Voices used for the ultra-realistic free tier.
+EDGE_VOICES = {
+    "male_professional": "en-US-ChristopherNeural",
+    "male_energetic": "en-US-GuyNeural",
+    "female_warm": "en-US-AriaNeural",
 }
 
 
@@ -63,23 +63,18 @@ def _generate_elevenlabs(text: str, output_path: str, voice: str) -> str:
     return output_path
 
 
-def _generate_say(text: str, output_path: str, voice: str) -> str:
-    """Offline fallback: macOS `say` → AIFF → MP3 via ffmpeg."""
-    if not shutil.which("say"):
-        raise RuntimeError(
-            "No ELEVENLABS_API_KEY set and macOS `say` is unavailable. "
-            "Set ELEVENLABS_API_KEY in .env to generate voiceovers."
-        )
-    say_voice = SAY_VOICES.get(voice, SAY_VOICES["male_professional"])
-    aiff_path = output_path.rsplit(".", 1)[0] + ".aiff"
-    subprocess.run(["say", "-v", say_voice, "-o", aiff_path, text], check=True)
-    # Convert AIFF → MP3 so downstream ffmpeg assembly is uniform.
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", aiff_path, output_path],
-        check=True,
-        capture_output=True,
-    )
-    os.remove(aiff_path)
+def _generate_edge_tts(text: str, output_path: str, voice: str) -> str:
+    """Free tier: Ultra-realistic Microsoft Edge Neural TTS."""
+    if not shutil.which("edge-tts"):
+        # We assume it's installed via pip in the venv, so we can run it with python -m edge_tts
+        import sys
+        cmd_prefix = [sys.executable, "-m", "edge_tts"]
+    else:
+        cmd_prefix = ["edge-tts"]
+        
+    edge_voice = EDGE_VOICES.get(voice, EDGE_VOICES["male_professional"])
+    
+    subprocess.run([*cmd_prefix, "--voice", edge_voice, "--text", text, "--write-media", output_path], check=True)
     return output_path
 
 
@@ -99,8 +94,8 @@ def generate_voiceover(
         path = _generate_elevenlabs(text, output_path, voice)
         engine = "ElevenLabs"
     else:
-        path = _generate_say(text, output_path, voice)
-        engine = "macOS say (offline fallback)"
+        path = _generate_edge_tts(text, output_path, voice)
+        engine = "Microsoft Edge Neural TTS (Free)"
 
     print(f"Voiceover saved: {path}  [{engine}]")
     return path

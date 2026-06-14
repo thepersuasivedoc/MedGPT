@@ -59,7 +59,7 @@ def create_text_slide(
     
     # 1. Fetch dynamic AI background based on the visual description
     safe_prompt = urllib.parse.quote(text[:150])
-    img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width={W}&height={H}&nologo=true"
+    img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width={W}&height={H}"
     try:
         resp = requests.get(img_url, timeout=30)
         resp.raise_for_status()
@@ -88,10 +88,12 @@ def create_text_slide(
     png_path = output_path + ".png"
     img.save(png_path)
 
+    duration_frames = int(duration * 25)
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1",
         "-i", png_path,
+        "-vf", f"zoompan=z='min(max(zoom,pzoom)+0.0008,1.5)':d={duration_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)',scale=1080:1920",
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         "-t", str(duration),
@@ -149,7 +151,7 @@ def assemble_full_video(script: dict, audio_path: str, output_path: str) -> str:
     for i, (segment, dur) in enumerate(zip(segments, durations)):
         slide_path = f"{OUTPUT_DIR}/slide_{i}.mp4"
         create_text_slide(
-            text=segment.get("visual_description", "")[:120],
+            text=segment.get("voiceover", ""),
             output_path=slide_path,
             duration=round(dur, 2),
         )

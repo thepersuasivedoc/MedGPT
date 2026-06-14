@@ -161,3 +161,32 @@ def ask_question(agent_executor, question: str, chat_history: list = None) -> di
         "sources": list(sources),
         "num_chunks_used": num_chunks
     }
+
+import json
+
+async def ask_question_stream(agent_executor, question: str, chat_history: list = None):
+    """Ask a question and stream the answer chunks back."""
+    if chat_history is None:
+        chat_history = []
+        
+    sources = set()
+    async for event in agent_executor.astream_events({
+        "input": question,
+        "chat_history": chat_history
+    }, version="v1"):
+        kind = event["event"]
+        
+        if kind == "on_tool_end":
+            if event["name"] == "search_textbooks":
+                output = event["data"].get("output", "")
+                found_sources = re.findall(r"Source: ([^\)]+)\)", str(output))
+                sources.update(found_sources)
+                
+        elif kind == "on_chat_model_stream":
+            # The structure of the chunk depends on the exact model
+            chunk = event["data"]["chunk"]
+            if hasattr(chunk, 'content') and isinstance(chunk.content, str):
+                if chunk.content:
+                    yield json.dumps({"type": "chunk", "content": chunk.content}) + "\n"
+                
+    yield json.dumps({"type": "done", "sources": list(sources)}) + "\n"

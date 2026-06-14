@@ -30,7 +30,7 @@ def _generate_claude_cli(prompt: str, model: str = None, timeout: int = 300) -> 
         "--model", model or CLAUDE_CLI_MODEL,
         "--output-format", "text",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
     if result.returncode != 0:
         raise RuntimeError(
             f"claude CLI failed (exit {result.returncode}): {result.stderr.strip()}"
@@ -56,7 +56,11 @@ def generate(prompt: str, temperature: float = 0.7, backend: str = None) -> str:
 
     if backend == "claude-cli":
         if shutil.which("claude"):
-            return _generate_claude_cli(prompt)
+            try:
+                return _generate_claude_cli(prompt)
+            except Exception as e:
+                print(f"Warning: claude CLI failed ({e}), falling back to Ollama.")
+                return _generate_ollama(prompt, temperature)
         # Graceful fallback so the pipeline still runs without the CLI.
         return _generate_ollama(prompt, temperature)
 
